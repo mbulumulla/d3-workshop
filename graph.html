@@ -1,0 +1,214 @@
+<html>
+<meta charset="UTF-8">
+<head>
+    <title>Gas Prices Graph</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <style>
+
+        .gridLines line {
+            stroke: lightgrey;
+        }
+
+        .gridLines .domain {
+            stroke: none;
+        }
+        .annotations {
+            stroke:lightgrey;
+        }
+        body{
+            margin-right:5%;
+            margin-left:5%; 
+            font-family: Optima, sans-serif;
+        }
+        
+        
+    </style>
+</head>
+<body>
+    <h1 id = "gasPrices">Gas Prices</h1>
+    <div class="row">
+        <div class="col-sm-10"><svg id = "graph" height=600 width=1000></svg></div>
+        <div class="col-sm-2" id = "key">
+            <h3>Selected Gas Price</h3>
+            <div id="currentMonth"></div>
+            <div id="currentPrice"></div>
+        </div>
+    </div>
+    
+
+</body>
+<script>
+    // Create a constant that refers to the html elements above
+    const g = d3.select("svg#graph");
+    const k = d3.select("div#key");
+
+    // Set the margins of our char width, height, margin, chartWidth, and chartHeight
+    const margin = {top: 10, right: 10, bottom:50, left:50};
+  
+    // Retrieve the width and height of g(our svg element)
+    const width = g.attr("width");
+    const height = g.attr("height");
+
+    // Initialize the chart's width and height based on the svg element and margins.
+    const chartWidth = width - margin.right - margin.left;
+    const chartHeight = height - margin.top - margin.bottom;
+
+    // Create the margins and the chartArea(where we put the actual graph)
+    let annotations = g.append("g").attr("id","annotations");
+    let chartArea = g.append("g").attr("id","points")
+      .attr("transform",`translate(${margin.left},${margin.top})`);
+
+    // This function does as it's called, requestData!
+    const requestData = async function() {
+        // put the csv data into the variable gas
+        const gas = await d3.csv("gas-prices.csv");
+        //Prints gas into the console.
+        console.log(gas);
+        
+
+        const formatMonth = d3.timeFormat("%m");
+        const formatYear = d3.timeFormat("%Y");
+       
+        // loop through the data to change them into date objects
+        gas.forEach((g) => {
+            currentDate = g['Month'];
+            dateObj = new Date(currentDate.substring(0,4), currentDate.substring(5,7));
+            formatMonth(dateObj);
+            formatYear(dateObj);
+            g['monthObj'] = dateObj;
+            
+        });
+        console.log(gas);
+
+        // create scales for both gas and date
+        // y axis
+        const priceExtent = d3.extent(gas, d => d["Price"] );
+        const priceScale = d3.scaleLinear().domain(priceExtent).range([chartHeight, 0]); 
+        
+        // x axis
+        const monthExtent = d3.extent(gas, d => d["monthObj"] );
+        const monthScale = d3.scaleTime().domain(monthExtent).range([ 0, chartWidth ]);  
+        console.log(monthExtent, monthScale(gas[0]['monthObj']));
+        
+        
+        // --- Create Axis
+        // y axis
+        let leftAxis = d3.axisLeft(priceScale)
+        let leftGridLines = d3.axisLeft(priceScale)
+            .tickSize(-chartWidth-10)
+            .tickFormat("")
+        annotations.append("g")
+            .attr("transform",`translate(${margin.left-10},${margin.top})`)
+            .attr("class", "y axis")
+            .call(leftAxis);
+        annotations.append("g")
+            .attr("transform",`translate(${margin.left-10},${margin.top})`)
+            .attr("class", "y gridLines")
+            .call(leftGridLines);
+
+        // x axis
+        let bottomAxis = d3.axisBottom(monthScale)
+        let bottomGridLines = d3.axisBottom(monthScale)
+            .tickSize(-chartHeight-10)
+            .tickFormat("")
+
+        annotations.append("g")
+            .attr("class", "x axis")
+            .attr("transform",`translate(${margin.left},${chartHeight+margin.top+10})`)
+            .call(bottomAxis);
+        annotations.append("g")
+            .attr("class", "x gridLines")
+            .attr("transform",`translate(${margin.left},${chartHeight+margin.top+10})`)
+            .call(bottomGridLines);
+                    
+        // --- Axis Labels
+        g.append("text")
+            .attr("x", 475)
+            .attr("y", 593)
+            .attr("font-size","17px")
+            .text("Date");
+            
+        g.append("text")
+            .attr("x", -325)
+            .attr("y", 15)
+            .attr("transform", "rotate(-90)")
+            .attr("font-size","17px")
+            .text("Price");
+
+       
+
+        // Color Scheme
+        const colorScale = d3.scaleQuantile()
+            .domain(priceExtent)
+            .range(["#fee087","#fec965","#feab4b","#fd893c","#fa5c2e","#ec3023","#d31121","#af0225","#800026"] );
+       
+        
+        gasBubbles = chartArea.selectAll("circle")
+            .data(gas)
+            .join("circle")
+            .attr("r", 4)
+            .style("opacity",  .5 )
+            .attr("cy", d => priceScale(d["Price"]) )
+            .attr("cx", d => monthScale(d["monthObj"]) )
+            .attr("fill", d => colorScale(d["Price"] ));
+        
+
+        // Hover Elements
+        const currentPrice = d3.select("div#currentPrice");
+        currentPrice.append("text")
+            .attr("x", 0)
+            .attr("y", 0)
+            .attr("id", "priceLabel")
+            .style("font-size","20px")
+            .text("     ");
+
+        const currentMonth = d3.select("div#currentMonth");
+        currentMonth.append("text")
+            .attr("x", 0)
+            .attr("y", 0)
+            .attr("id", "monthLabel")
+            .style("font-size","20px")
+            .text("     ");
+        
+        
+        // When user mouses over the circle
+        gasBubbles.on("mouseover", function() {
+            d3.select(this)
+                .transition().duration(200)
+                .attr("r", 5.5)
+                .attr("opacity", .9)
+                .attr("stroke-width",2)
+                .attr("stroke","grey")
+                .attr("fill", d => colorScale(d["Price"] ));
+            // change the labels with the correct name
+            d3.select("#monthLabel")
+                .text("Date: " + d3.select(this).datum()['Month']);
+            d3.select("#priceLabel")
+                .text("Price: $" + d3.select(this).datum()['Price']);
+        });
+
+        // When the user leaves the circle
+        gasBubbles.on("mouseout", function() {
+            d3.select(this)
+                .transition().duration(100)
+                .attr("r", 4)
+                .attr("stroke-width",1)
+                .attr("stroke","none")
+                .attr("opacity", .5);
+            // make the labels empty again
+            d3.select("#monthLabel")
+                .text(" ");            
+            d3.select("#priceLabel")
+                .text(" ");
+
+        });
+    
+
+    }
+    requestData();
+</script>
+
+</html>

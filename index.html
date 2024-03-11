@@ -1,0 +1,492 @@
+<html>
+<meta charset="UTF-8">
+<head>
+    <title>D3 Workshop using Gas Prices</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://d3js.org/topojson.v3.min.js"></script>
+    
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+    <style>
+        body{
+            margin-right:5%;
+            margin-left:5%;
+            margin-bottom:2%;
+            margin-top:2%;
+            font-family: Optima, sans-serif;
+        }
+        
+        h1 {
+            color:rgb(91, 8, 8);
+        }
+        h2 {
+            color:brown;
+        }
+        h2 a {
+            font-weight: bold;
+            color:rgb(126, 13, 13);
+        }
+        h3 {
+            color:rgb(189, 90, 23);
+        }
+    </style>
+   
+</head>
+
+<body>
+    <!--to start a server: python -m http.server -->
+
+    <h1>D3 Workshop using Gas Prices</h1>
+    <p>By Medha Bulumulla</p>
+
+    
+    <h2>Take a closer look at the <a href = "graph.html">visualization</a> we are creating today.</h2>
+    <p>The dataset is found <a href = "https://datahub.io/core/natural-gas/r/1.html">here</a>. </p>
+    <p>You can go to the <a href="https://github.coecis.cornell.edu/mb2569/D3-Workshop-SP22">repository</a> to download or clone the code for this webpage and visualization.</p>
+
+    <h2 id = "gasPrices">Gas Prices</h2>
+    <div class="row">
+        <div class="col-sm-10"><svg id = "graph" height=400 width=1000></svg></div>
+        <div class="col-sm-1" id="key" height=50 width = 50>
+            <h4>Selected Gas Price</h4>
+            <div id="currentMonth"></div>
+            <div id="currentPrice"></div>
+        </div>
+    </div>
+
+    <h3>Let's start by opening a server. </h3>
+    
+    <p>Use the change directory command to go where this folder is located. You can use the <b>cd</b> command like below</p>
+    <pre>cd /Users/medhabulumulla/Desktop/D3-Workshop-SP22</pre>
+    <p>Then run the following command which will open a server so you can display the content correctly. 
+    This should bring you to your browser but if not, go <a href = "http://localhost:8000/">here</a>.</p>
+    <pre>python -m http.server</pre>
+
+    <h3>What is D3.js?</h3>
+    <p>According to the official <a href = "https://d3js.org/">D3 website</a>, "D3 allows you to bind arbitrary data to a Document Object Model (DOM), and then apply data-driven transformations to the document. For example, you can use D3 to generate an HTML table from an array of numbers. Or, use the same data to create an interactive SVG bar chart with smooth transitions and interaction."</p>
+    
+    
+    <h3>SVG's Axis</h3>
+    <p>The axis SVG uses isn't the most intuitive way. (0,0) is located at the top left. You should keep this in mind when developing graphs in D3.</p>
+    <img src ="d3-axis.png">
+
+    <h3>Script files and Links </h3>
+
+    <p>These are the <b>D3's scripts</b> so you can use D3's methods.</p>
+    <pre>
+script src="https://d3js.org/d3.v7.min.js"
+script src="https://d3js.org/topojson.v3.min.js"</pre>
+
+    <p>The first link is to a <b>style sheet</b>.</p>
+    <p>With D3, the CSS might not always work in an external CSS file so I will often use a style tag directly in the html code. 
+        But sometimes it's still helpful to have an additional style file. </p>
+    <pre>
+link rel="stylesheet" type="text/css" href="style.css"</pre>
+
+    <p>This link is for <b><a href = "https://getbootstrap.com/">bootstrap</a></b>: a package that makes it easier to build responsive sites. </p>
+    <p>It's a really intuitive package that makes structuring easier. I'd recommend taking a look at it if you want to create your own websites fast. </p>
+    <pre>
+link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css"</pre>
+
+    <h3>HTML Set up</h3>
+    <p>You can take a look at the HTML code through the <a href ="https://github.coecis.cornell.edu/mb2569/D3-Workshop-SP22">repository</a> or looking at the Page Source</p>
+
+    <p>Here's how I structured the HTML of this visualization.</p>
+    <img src ="AddingSVG.jpg">
+
+    <h2>Let's jump into Javascript!!</h2>
+<h3>Create a constant referring to the html elements</h3>
+    <pre>
+const g = d3.select("svg#graph");
+const k = d3.select("div#key");</pre>
+<h3>Set up the Chart</h3>
+    <p> I want to have a small margin so I can add the labels of the axis. </p>
+    <pre>const margin = {top: 10, right: 10, bottom:50, left:50};</pre>
+
+    <p>Retrieve the width and height of g(our svg element) using <b>attr</b>.</p>
+    <pre>const width = g.attr("width");
+const height = g.attr("height");</pre>
+
+    <p>Here I want to use the margins and the dimensions of the svg element to calculate the width and height of the graph/chart. This will make our lives easier below so we don't have to keep doing transformations.</p>
+    <pre>const chartWidth = width - margin.right - margin.left;
+const chartHeight = height - margin.top - margin.bottom;</pre>
+
+    <p>Now I create the <b>chartArea</b>, where our graph will actually go according to the calculations above. </p>
+    <pre>let annotations = g.append("g").attr("id","annotations");
+let chartArea = g.append("g").attr("id","points")
+    .attr("transform",`translate(${margin.left},${margin.top})`);</pre>
+<h3>Retrieving and Altering the data</h3>
+    <p>Now I retrieve the gas prices data from the csv using the <b>d3.csv</b> function. Then I print the data into the console using <b>console.log</b></p>
+    <pre>
+const gas = await d3.csv("gas-prices.csv");
+//Prints gas into the console.
+console.log(gas)</pre>
+    
+    <p>The dataset has their months in the format: 1999-01 which refers to January 1999. I want to convert this into a d3 object using <b>timeFormat</b>.You can read more about <a href = "https://github.com/d3/d3-time-format/tree/d6feb945baa4b7a45898a9ca926ebca044e20657">timeFormat's documentation</a>.</p>
+    <p>First we're using a <b>forEach</b> loop(similar to a for loop) to iteraate through the data. We create a date object with the parameters of the year amd month.</p>
+    <p>Then I use my timeFormatting functions to convert it. I create a new column called <i>monthObj</i> which stores the date objects so we can still use the human-readable version later.</p>
+    <pre>
+const formatMonth = d3.timeFormat("%m");
+const formatYear = d3.timeFormat("%Y");
+
+// loop through the data to change them into date objects
+gas.forEach((g) => {
+    currentDate = g['Month'];
+    dateObj = new Date(currentDate.substring(0,4), currentDate.substring(5,7));
+    formatMonth(dateObj);
+    formatYear(dateObj);
+    g['monthObj'] = dateObj;</pre>
+<h3>Developing the Axis based on the data</h5>
+    <p>So the svg is a specific height and width. 
+        I want to create scales that work best for the data and the space allocated to the graph. 
+        Below we will be utilizing the data to create scales. 
+    </p>
+    <p>
+        First I run <b>extent</b> which gets the min and max of a dataset. 
+        Then I create a scale using <b>scaleLinear</b>. There are other scales which you can learn about in the <a href="https://github.com/d3/d3-scale/blob/main/README.md">d3.scale documentation</a>.
+    </p>
+
+    <p>
+        The <b>domain</b> of <b>scaleLinear</b> takes in the <b>[min, max]</b> of the dataset which is saved in the extent variables.
+    </p>
+    <p>
+        The <b>range</b> is what is actually on the computer, aka what we want to see. When thinking about the range, look at the first graphic to make sure you're thinking through the coordinates correctly because it's easy to get confused.
+    </p>
+    <p>Creating the y axis scale from the price data</p>
+    <pre>
+// y axis
+const priceExtent = d3.extent(gas, d => d["Price"] );
+const priceScale = d3.scaleLinear().domain(priceExtent).range([chartHeight, 0]);</pre>
+
+    <p>Creating the x axis scale from the month data</p>
+     
+<pre>// x axis
+const monthExtent = d3.extent(gas, d => d["monthObj"] );
+const monthScale = d3.scaleTime().domain(monthExtent).range([ 0, chartWidth ]);</pre>
+
+<h3>Color Scale</h3>
+    <p>You can set color's for specific values. I used this <a href = "https://observablehq.com/@d3/color-schemes">color scheme website</a> to get a discrete color scheme.</p>
+    <p>Although I wouldn't say using color here is completely necessary given that you can look at the prices using the scale, it adds a nice visual element. 
+        There are some datasets where you might want to group specific data pieces together using color where this might be more useful.</p>
+    <pre>
+const colorScale = d3.scaleQuantile()
+    .domain(priceExtent)
+    .range(["#fee087","#fec965","#feab4b","#fd893c","#fa5c2e","#ec3023","#d31121","#af0225","#800026"] );</pre>
+
+    
+     <h3>Create the Axis using the scales</h3>
+     <p>Here we're going to create the axis based on the scales we made above. 
+         We also need to take into account the margins by translating the axis.</p>
+    <p>I use the calls: <b>d3.axisLeft, d3.axisBottom</b> to create left and bottom axis respectively. 
+        Then we <b>append</b> the ticks to the <b>chartArea</b></p>
+     <pre>
+// y axis
+let leftAxis = d3.axisLeft(priceScale)
+let leftGridLines = d3.axisLeft(priceScale)
+    .tickSize(-chartWidth-10)
+    .tickFormat("")
+annotations.append("g")
+    .attr("transform",`translate(${margin.left-10},${margin.top})`)
+    .attr("class", "y axis")
+    .call(leftAxis);
+annotations.append("g")
+    .attr("transform",`translate(${margin.left-10},${margin.top})`)
+    .attr("class", "y gridLines")
+    .call(leftGridLines);
+
+// x axis
+let bottomAxis = d3.axisBottom(monthScale)
+let bottomGridLines = d3.axisBottom(monthScale)
+    .tickSize(-chartHeight-10)
+    .tickFormat("")
+
+annotations.append("g")
+    .attr("class", "x axis")
+    .attr("transform",`translate(${margin.left},${chartHeight+margin.top+10})`)
+    .call(bottomAxis);
+annotations.append("g")
+    .attr("class", "x gridLines")
+    .attr("transform",`translate(${margin.left},${chartHeight+margin.top+10})`)
+    .call(bottomGridLines);</pre>
+ 
+     <p>Axis Labels</p>
+
+     <pre>
+g.append("text")
+    .attr("x", 300)
+    .attr("y", 693)
+    .attr("font-size","20px")
+    .text("Month");
+    
+g.append("text")
+    .attr("x", -400)
+    .attr("y", 15)
+    .attr("transform", "rotate(-90)")
+    .attr("font-size","20px")
+    .text("Price");</pre>
+
+    <h4>What we've created so far?</h4>
+    <img src="empty-graph.png">
+
+     <h3>Create the circles</h3>
+         <p>We are assigning all the circles to the variable, gasBubbles so we can use it for the hover mechanism later.</p>
+         <p>We are adding circles to charArea by joining the data from gas to set the x and y values. </p>
+     <pre>
+gasBubbles = chartArea.selectAll("circle")
+    .data(gas)
+    .join("circle")
+    .attr("r", 4)
+    .style("opacity",  .5 )
+    .attr("cy", d => priceScale(d["Price"]) )
+    .attr("cx", d => monthScale(d["monthObj"]) )
+    .attr("fill", d => colorScale(d["Price"] ));</pre>
+
+    <h3>Creating the Key using D3</h3>
+    <img src ="AddingKeyDrawing.jpg">
+
+    <h3>Hovering</h3>
+    <p>To create the key where we can look at the month and prices of specific data points: we want to add empty elements. 
+        We will add information into them when they are hovered but for now they will be empty.</p>
+    <pre>
+const currentPrice = d3.select("div#currentPrice");
+currentPrice.append("text")
+   .attr("x", 0)
+   .attr("y", 0)
+   .attr("id", "priceLabel")
+   .attr("font-size","25px")
+   .text("     ");
+
+const currentMonth = d3.select("div#currentMonth");
+currentMonth.append("text")
+   .attr("x", 0)
+   .attr("y", 0)
+   .attr("id", "monthLabel")
+   .attr("font-size","25px")
+   .text("     ");</pre>
+<h3>When the user Mouseovers</h3>
+    <p>We want it so that the opacity, and line around the circle increase when hovered on. We also want the user to see the specific price and month of the data point they're hovering on.</p>
+    <p>We use the mouseover function and select this(the data) of gasBubbles(look above to see the intialization of this) for the mouseover functionality.
+        This will change the opacity, stroke-width. It will also change the text in the previosuly empty elements to reflect the data.
+    </p>
+    <pre>
+gasBubbles.on("mouseover", function() {
+   d3.select(this)
+       .transition().duration(200)
+       .attr("r", 5.5)
+       .attr("opacity", .9)
+       .attr("stroke-width",2)
+       .attr("stroke","grey")
+       .attr("fill", d => colorScale(d["Price"] ));
+   // change the labels with the correct name
+   d3.select("#monthLabel")
+       .text("Date: " + d3.select(this).datum()['Month']);
+   d3.select("#priceLabel")
+       .text("Price: $" + d3.select(this).datum()['Price']);
+});
+    </pre>
+
+    <h3>Mouseout: when the user leaves</h3>
+    <p>We don't want the price data or circle appearance to remain even when the user takes their mouse off the cirle, that would be annoying</p>
+    <p>Here we're changing it back to what it originally was./p>
+    <pre>
+gasBubbles.on("mouseout", function() {
+   d3.select(this)
+       .transition().duration(100)
+       .attr("r", 4)
+       .attr("stroke-width",1)
+       .attr("stroke","none")
+       .attr("opacity", .5);
+   // make the labels empty again
+   d3.select("#monthLabel")
+       .text(" ");            
+   d3.select("#priceLabel")
+       .text(" ");
+
+});
+    </pre>
+<h2>Conclusion</h2>
+    <p>As you can see D3.js has a lot of powerful visualization capabilities. My personal favorite is the fact that things are so customizable and you can utilize data joins to utilize the hover feature.</p>
+    <p>There's a lot you can do with it and if you want to learn more you should totally take INFO 3300 or look at the D3.js documentation more.</p>
+    
+<h3>D3 Examples</h3>
+<ul>
+    <li><a href = "https://observablehq.com/@d3/gallery">D3's Official Gallery</a>: Look at these visualizations for inspiration!!</li>
+    <li> <a href ="https://gasprices.aaa.com/">Gas Prices</a>: This was created using Javascript, but you can use D3 to create the exact same thing! You can webscrape this page to create the dataset. </li>
+    <li>Here is a <a href = "https://pages.github.coecis.cornell.edu/mb2569/3300Project2/">map</a> I created with 2 others on Olympic medal data in INFO 3300. </li>
+    
+</ul>
+</body>
+
+<script>
+    // Create a constant that refers to the html elements above
+    const g = d3.select("svg#graph");
+    const k = d3.select("div#key");
+
+    // Set the margins of our char width, height, margin, chartWidth, and chartHeight
+    const margin = {top: 10, right: 10, bottom:50, left:50};
+  
+    // Retrieve the width and height of g(our svg element)
+    const width = g.attr("width");
+    const height = g.attr("height");
+
+    // Initialize the chart's width and height based on the svg element and margins.
+    const chartWidth = width - margin.right - margin.left;
+    const chartHeight = height - margin.top - margin.bottom;
+
+    // Create the margins and the chartArea(where we put the actual graph)
+    let annotations = g.append("g").attr("id","annotations");
+    let chartArea = g.append("g").attr("id","points")
+      .attr("transform",`translate(${margin.left},${margin.top})`);
+
+    // This function does as it's called, requestData!
+    const requestData = async function() {
+        // put the csv data into the variable gas
+        const gas = await d3.csv("gas-prices.csv");
+        //Prints gas into the console.
+        console.log(gas);
+        
+
+        const formatMonth = d3.timeFormat("%m");
+        const formatYear = d3.timeFormat("%Y");
+       
+        // loop through the data to change them into date objects
+        gas.forEach((g) => {
+            currentDate = g['Month'];
+            dateObj = new Date(currentDate.substring(0,4), currentDate.substring(5,7));
+            formatMonth(dateObj);
+            formatYear(dateObj);
+            g['monthObj'] = dateObj;
+            
+        });
+        console.log(gas);
+
+        // create scales for both gas and date
+        // y axis
+        const priceExtent = d3.extent(gas, d => d["Price"] );
+        const priceScale = d3.scaleLinear().domain(priceExtent).range([chartHeight, 0]); 
+        
+        // x axis
+        const monthExtent = d3.extent(gas, d => d["monthObj"] );
+        const monthScale = d3.scaleTime().domain(monthExtent).range([ 0, chartWidth ]);  
+        console.log(monthExtent, monthScale(gas[0]['monthObj']));
+        
+        
+        // --- Create Axis
+        // y axis
+        let leftAxis = d3.axisLeft(priceScale)
+        let leftGridLines = d3.axisLeft(priceScale)
+            .tickSize(-chartWidth-10)
+            .tickFormat("")
+        annotations.append("g")
+            .attr("transform",`translate(${margin.left-10},${margin.top})`)
+            .attr("class", "y axis")
+            .call(leftAxis);
+        annotations.append("g")
+            .attr("transform",`translate(${margin.left-10},${margin.top})`)
+            .attr("class", "y gridLines")
+            .call(leftGridLines);
+
+        // x axis
+        let bottomAxis = d3.axisBottom(monthScale)
+        let bottomGridLines = d3.axisBottom(monthScale)
+            .tickSize(-chartHeight-10)
+            .tickFormat("")
+
+        annotations.append("g")
+            .attr("class", "x axis")
+            .attr("transform",`translate(${margin.left},${chartHeight+margin.top+10})`)
+            .call(bottomAxis);
+        annotations.append("g")
+            .attr("class", "x gridLines")
+            .attr("transform",`translate(${margin.left},${chartHeight+margin.top+10})`)
+            .call(bottomGridLines);
+                    
+        // --- Axis Labels: height=400 width=600
+        g.append("text")
+            .attr("x", 470)
+            .attr("y", 393)
+            .attr("font-size","15px")
+            .text("Date");
+            
+        g.append("text")
+            .attr("x", -200)
+            .attr("y", 15)
+            .attr("transform", "rotate(-90)")
+            .attr("font-size","15px")
+            .text("Price");
+
+       
+
+        // Color Scheme
+        const colorScale = d3.scaleQuantile()
+            .domain(priceExtent)
+            .range(["#fee087","#fec965","#feab4b","#fd893c","#fa5c2e","#ec3023","#d31121","#af0225","#800026"] );
+       
+        
+        gasBubbles = chartArea.selectAll("circle")
+            .data(gas)
+            .join("circle")
+            .attr("r", 4)
+            .style("opacity",  .5 )
+            .attr("cy", d => priceScale(d["Price"]) )
+            .attr("cx", d => monthScale(d["monthObj"]) )
+            .attr("fill", d => colorScale(d["Price"] ));
+        
+
+        // Hover Elements
+        const currentPrice = d3.select("div#currentPrice");
+        currentPrice.append("text")
+            .attr("x", 0)
+            .attr("y", 0)
+            .attr("id", "priceLabel")
+            .attr("font-size","25px")
+            .text("     ");
+
+        const currentMonth = d3.select("div#currentMonth");
+        currentMonth.append("text")
+            .attr("x", 0)
+            .attr("y", 0)
+            .attr("id", "monthLabel")
+            .attr("font-size","25px")
+            .text("     ");
+        
+        
+        // When user mouses over the circle
+        gasBubbles.on("mouseover", function() {
+            d3.select(this)
+                .transition().duration(200)
+                .attr("r", 5.5)
+                .attr("opacity", .9)
+                .attr("stroke-width",2)
+                .attr("stroke","grey")
+                .attr("fill", d => colorScale(d["Price"] ));
+            // change the labels with the correct name
+            d3.select("#monthLabel")
+                .text("Date: " + d3.select(this).datum()['Month']);
+            d3.select("#priceLabel")
+                .text("Price: $" + d3.select(this).datum()['Price']);
+        });
+
+        // When the user leaves the circle
+        gasBubbles.on("mouseout", function() {
+            d3.select(this)
+                .transition().duration(100)
+                .attr("r", 4)
+                .attr("stroke-width",1)
+                .attr("stroke","none")
+                .attr("opacity", .5);
+            // make the labels empty again
+            d3.select("#monthLabel")
+                .text(" ");            
+            d3.select("#priceLabel")
+                .text(" ");
+
+        });
+    
+
+    }
+    requestData();
+</script>
+
+</html>
+
